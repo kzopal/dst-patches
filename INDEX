@@ -33,7 +33,7 @@ fontmetrics	st-fontmetrics-0.9.3.diff
 fullscreen	st-fullscreen-0.8.5.diff
 gradient	st-gradient.diff
 gruvbox-light	st-gruvbox-light-0.8.5.diff
-hidecursor	st-hidecursor.diff
+hidecursor	st-hidecursor-0.8.3.diff
 hidecursor-0.8.3	st-hidecursor-0.8.3.diff
 invert	st-invert.diff
 keyboard_select	st-keyboard_select-20250816-a1193c1.diff
