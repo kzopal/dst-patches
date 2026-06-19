@@ -1,0 +1,62 @@
+diff -ruN -x '*.orig' -x '*.rej' ../src/st.c ./st.c
+--- ../src/st.c	2026-06-19 13:37:35.505823446 -0700
++++ ./st.c	2026-06-19 15:25:58.805069212 -0700
+@@ -218,6 +218,8 @@
+ 
+ static ssize_t xwrite(int, const char *, size_t);
+ 
++static int gettmuxpts(void);
++
+ /* Globals */
+ static Term term;
+ static Selection sel;
+@@ -1057,6 +1059,49 @@
+ 	tfulldirt();
+ }
+ 
++/* returns the pty of tmux client or -1 if the child of st isn't tmux */
++static int
++gettmuxpts(void)
++{
++	char buf[32];
++	char comm[17];
++	int tty;
++	FILE *fstat;
++	FILE *fcomm;
++	size_t numread;
++
++	snprintf(buf, sizeof buf, "/proc/%ld/comm", (long)pid);
++
++	fcomm = fopen(buf, "r");
++	if (!fcomm) {
++		fprintf(stderr, "Couldn't open %s: %s\n", buf, strerror(errno));
++		_exit(1);
++	}
++
++	numread = fread(comm, 1, sizeof comm - 1, fcomm);
++	comm[numread] = '\0';
++
++	fclose(fcomm);
++
++	if (strcmp("tmux: client\n", comm) != 0)
++		return -1;
++
++	snprintf(buf, sizeof buf, "/proc/%ld/stat", (long)pid);
++	fstat = fopen(buf, "r");
++	if (!fstat) {
++		fprintf(stderr, "Couldn't open %s: %s\n", buf, strerror(errno));
++		_exit(1);
++	}
++
++	/*
++	 * We can't skip the second field with %*s because it contains a space so
++	 * we skip strlen("tmux: client") + 2 for the braces which is 14.
++	 */
++	fscanf(fstat, "%*d %*14c %*c %*d %*d %*d %d", &tty);
++	fclose(fstat);
++	return ((0xfff00000 & tty) >> 12) | (0xff & tty);
++}
++
+ void
+ tscrolldown(int orig, int n)
+ {

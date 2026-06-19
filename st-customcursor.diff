@@ -1,0 +1,15 @@
+diff -ruN -x '*.orig' -x '*.rej' ../src/x.c ./x.c
+--- ../src/x.c	2026-06-19 14:34:02.727203628 -0700
++++ ./x.c	2026-06-19 15:25:40.813014674 -0700
+@@ -1563,7 +1563,11 @@
+ 	if (IS_SET(MODE_FOCUSED)) {
+ 		switch (win.cursor) {
+ 		case 7: /* st extension */
++			#ifdef CUSTOM_BLOCK
++			g.u = CUSTOM_BLOCK;
++			#else
+ 			g.u = 0x2603; /* snowman (U+2603) */
++			#endif
+ 			/* FALLTHROUGH */
+ 		case 0: /* Blinking Block */
+ 		case 1: /* Blinking Block (Default) */

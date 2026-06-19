@@ -1,0 +1,275 @@
+diff -ruN -x '*.orig' -x '*.rej' ../src/config.def.h ./config.def.h
+--- ../src/config.def.h	2026-06-19 14:02:48.088881195 -0700
++++ ./config.def.h	2026-06-19 15:25:54.457056089 -0700
+@@ -8,6 +8,20 @@
+ int config_path(char *buf, size_t len);
+ 
+ /*
++ * Override/adjust fontsize of choosen monitors:
++ */
++MonitorConfig monitors_config[] = {
++	// skip = fixed relative points size (monitor dpi)
++	//   =0 : fixed absolute pixel size (default screen dpi)
++	//   >0 : auto absolute pixel size (monitor dpi)
++	//   <0 : auto relative points size (monitor dpi)
++	// {"DP-1", 0}, // BUG:(size=0): not restored to default after back'n'forth
++	{"HDMI-0~1", -20},  // BUG:(ignored DPI=220): = 20 is eqv to 10pt (DPI=110)
++	{"HDMI-0~2", -14},
++};
++float winmovethreshold = 0.6;
++
++/*
+  * appearance
+  *
+  * font: see http://freedesktop.org/software/fontconfig/fontconfig-user.html
+@@ -203,6 +217,7 @@
+ 	{ TERMMOD,              XK_Prior,       zoom,           {.f = +1} },
+ 	{ TERMMOD,              XK_Next,        zoom,           {.f = -1} },
+ 	{ TERMMOD,              XK_Home,        zoomreset,      {.f =  0} },
++	{ TERMMOD,              XK_End,         refreshxrandr,  {.i =  0} },
+ 	{ TERMMOD,              XK_C,           clipcopy,       {.i =  0} },
+ 	{ TERMMOD,              XK_V,           clippaste,      {.i =  0} },
+ 	{ TERMMOD,              XK_Y,           selpaste,       {.i =  0} },
+diff -ruN -x '*.orig' -x '*.rej' ../src/x.c ./x.c
+--- ../src/x.c	2026-06-19 14:34:02.727203628 -0700
++++ ./x.c	2026-06-19 15:25:54.457056089 -0700
+@@ -14,6 +14,7 @@
+ #include <X11/keysym.h>
+ #include <X11/Xft/Xft.h>
+ #include <X11/XKBlib.h>
++#include <X11/extensions/Xrandr.h>
+ 
+ char *argv0;
+ #include "arg.h"
+@@ -45,6 +46,19 @@
+ 	signed char appcursor; /* application cursor */
+ } Key;
+ 
++typedef struct {
++	const char *name;
++	float defaultfontsize;
++} MonitorConfig;
++
++typedef struct {
++	Atom name;
++	int x, y, w, h;
++	float defaultfontsize, usedfontsize;
++} MonitorInfo;
++
++static void refreshxrandr(const Arg *dummy);
++
+ /* X modifiers */
+ #define XK_ANY_MOD    UINT_MAX
+ #define XK_NO_MOD     0
+@@ -216,6 +230,11 @@
+ 	[SelectionRequest] = selrequest,
+ };
+ 
++static double defaultrelfontsize = 0;
++static MonitorInfo *monitors_info = NULL;
++static int monitors_num = 0;
++static int prev_mindex = -1;
++
+ /* Globals */
+ static DC dc;
+ static XWindow xw;
+@@ -1763,6 +1782,144 @@
+ 	XFree(h);
+ }
+ 
++static void
++cachemonitorinfo()
++{
++	int prev_num = monitors_num;
++	MonitorInfo *prev_info = monitors_info;
++	XRRMonitorInfo *xmonitors = XRRGetMonitors(xw.dpy, XRootWindow(xw.dpy, xw.scr), 1, &monitors_num);
++	if (!monitors_num)
++		die("xrandr found no monitors");
++
++	monitors_info = xmalloc(monitors_num * sizeof(MonitorInfo));
++
++	for (int i = 0; i < monitors_num; ++i) {
++		XRRMonitorInfo *xm = &xmonitors[i];
++		MonitorInfo *m = &monitors_info[i];
++
++		m->name = xm->name;
++		m->x = xm->x;
++		m->y = xm->y;
++		m->w = xm->width;
++		m->h = xm->height;
++
++		float px_mm = ((float)m->w / xm->mwidth + (float)m->h / xm->mheight) / 2;
++		float px_pt = 25.4 * px_mm / 72;
++		m->defaultfontsize = defaultrelfontsize * px_pt;
++
++		// Override defaultfontsize (dpi) by user config
++		char *name = XGetAtomName(xw.dpy, xm->name);
++		for (int j = 0; j < LEN(monitors_config); ++j)
++			if (!strcmp(name, monitors_config[j].name)) {
++				m->defaultfontsize = monitors_config[j].defaultfontsize;
++				if (m->defaultfontsize < 0)
++					m->defaultfontsize *= -px_pt;
++				break;
++			}
++		// fprintf(stderr, "%s: %fpx, %f\n", name, m->defaultfontsize, m->usedfontsize);
++		XFree(name);
++
++		// Restore usedfontsize (zoom) after re-cache for monitors with the same name
++		m->usedfontsize = m->defaultfontsize;
++		for (int j = 0; j < prev_num; ++j)
++			if (prev_info[j].name == m->name) {
++				m->usedfontsize = prev_info[j].usedfontsize;
++				break;
++			}
++	}
++
++	XRRFreeMonitors(xmonitors);
++	free(prev_info);
++}
++
++static int
++getmonitorindex_threshold(int w, int h, int x, int y)
++{
++	int mindex = -1;
++	float fontsize = 0;
++	int thresholdarea = winmovethreshold * w * h;
++
++	for (int i = 0; i < monitors_num; ++i) {
++		MonitorInfo *m = &monitors_info[i];
++		int overlap_w = MAX(0, MIN(x + w, m->x + m->w) - MAX(x, m->x));
++		int overlap_h = MAX(0, MIN(y + h, m->y + m->h) - MAX(y, m->y));
++		int area = overlap_w * overlap_h;
++		// Choose monitor with largest dpi (defaultfontsize)
++		//  from all "mirrored"/overlapped (e.g. projector)
++		if (area >= thresholdarea && fontsize < m->defaultfontsize) {
++			fontsize = m->defaultfontsize;
++			mindex = i;
++		}
++	}
++	return mindex;
++}
++
++static int
++getmonitorindex_nearest(int w, int h, int x, int y)
++{
++	int mindex = -1;
++	float fontsize = 0;
++	int overlaparea = 0;
++
++	for (int i = 0; i < monitors_num; ++i) {
++		MonitorInfo *m = &monitors_info[i];
++		int overlap_w = MAX(0, MIN(x + w, m->x + m->w) - MAX(x, m->x));
++		int overlap_h = MAX(0, MIN(y + h, m->y + m->h) - MAX(y, m->y));
++		int area = overlap_w * overlap_h;
++		// Choose monitor with largest overlapping area
++		//  e.g. when "st" is initially spawned in-between monitors
++		if (area > overlaparea) {
++			overlaparea = area;
++			mindex = i;
++		}
++	}
++	return mindex;
++}
++
++static void
++adjustmonitorfontsize(int mindex)
++{
++	if (mindex < 0 || prev_mindex == mindex)
++		return;
++	// Save zoom of current monitor before switching
++	if (prev_mindex >= 0)
++		monitors_info[prev_mindex].usedfontsize = usedfontsize;
++
++	defaultfontsize = monitors_info[mindex].defaultfontsize;
++	// fprintf(stderr, "Crossing: %fpx\n", defaultfontsize);
++
++	// NOTE: do nothing if font size differs by less than 1%
++	double fontsize = monitors_info[mindex].usedfontsize;
++	double delta = 0.01 * usedfontsize;
++	if (!BETWEEN(fontsize - usedfontsize, -delta, delta)) {
++		// fprintf(stderr, "Adjusted: %fpx\n", fontsize);
++		xunloadfonts();
++		xloadfonts(usedfont, fontsize);
++	}
++	prev_mindex = mindex;
++}
++
++void
++refreshxrandr(const Arg *dummy)
++{
++	// Reset index to detect change of window association on "xrandr ... --primary"
++	//  otherwise: zoom won't be saved on switching and new font size won't be loaded
++	// CRIT!!! event from xrandr may place another monitor into same index
++	if (prev_mindex >= 0)
++		monitors_info[prev_mindex].usedfontsize = usedfontsize;
++	prev_mindex = -1;
++
++	XWindowAttributes xattr = {0};
++	cachemonitorinfo();
++	XGetWindowAttributes(xw.dpy, xw.win, &xattr);
++
++	int mindex = getmonitorindex_threshold(xattr.width, xattr.height, xattr.x, xattr.y);
++	if (mindex < 0)
++		mindex = getmonitorindex_nearest(xattr.width, xattr.height, xattr.x, xattr.y);
++	adjustmonitorfontsize(mindex);
++}
++
++
+ void
+ xbell(void)
+ {
+@@ -1915,6 +2072,14 @@
+ void
+ resize(XEvent *e)
+ {
++	// BAD: no resize on monitor plug/unplug/reconfigure -- until window itself is kept in the same place
++	// NOTE: no resize event on zoomabs()
++	// fprintf(stderr, "Resize: %dx%d+%d+%d\n",
++	//     e->xconfigure.width, e->xconfigure.height, e->xconfigure.x, e->xconfigure.y);
++
++	adjustmonitorfontsize(getmonitorindex_threshold(
++	    e->xconfigure.width, e->xconfigure.height, e->xconfigure.x, e->xconfigure.y));
++
+ 	if (e->xconfigure.width == win.w && e->xconfigure.height == win.h)
+ 		return;
+ 
+@@ -1947,6 +2112,22 @@
+ 		}
+ 	} while (ev.type != MapNotify);
+ 
++	int rr_event_base, rr_error_base, rr_major, rr_minor;
++	if (!XRRQueryExtension (xw.dpy, &rr_event_base, &rr_error_base) ||
++	    !XRRQueryVersion (xw.dpy, &rr_major, &rr_minor) ||
++	    rr_major < 1 || (rr_major == 1 && rr_minor < 5))
++	{
++		die("RandR 1.5 extension isn't available\n");
++	}
++	XRRSelectInput(xw.dpy, xw.win, RRCrtcChangeNotifyMask);
++
++	// WARN: can query actual window size/pos only after window is mapped and its width/height are adjusted by WM
++	//  * x/y are WM-dependent and can't be determined beforehand anyway
++	//  * defaultfontsize isn't available until font is loaded and actual Fc*() size queried
++	// BAD: fonts on startup are always reloaded -- how to specify their size beforehand ?
++	FcPatternGetDouble(dc.font.match->pattern, FC_SIZE, 0, &defaultrelfontsize);
++	refreshxrandr(0);
++
+ 	ttyfd = ttynew(opt_line, shell, opt_io, opt_cmd);
+ 	cresize(w, h);
+ 
+@@ -1978,6 +2159,16 @@
+ 			XNextEvent(xw.dpy, &ev);
+ 			if (XFilterEvent(&ev, None))
+ 				continue;
++			if (LASTEvent <= ev.type) {
++				if (rr_event_base + RRNotify == ev.type &&
++					RRNotify_CrtcChange == ((XRRNotifyEvent *)&ev)->subtype)
++				{
++					XRRUpdateConfiguration(&ev);
++					// fprintf(stderr, "Monitor change: %d > %d\n", rr_event_base, LASTEvent);
++					refreshxrandr(0);
++				}
++				continue;
++			}
+ 			if (handler[ev.type])
+ 				(handler[ev.type])(&ev);
+ 		}

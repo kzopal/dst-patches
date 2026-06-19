@@ -1,0 +1,62 @@
+diff -ruN -x '*.orig' -x '*.rej' ../src/config.def.h ./config.def.h
+--- ../src/config.def.h	2026-06-19 14:02:48.088881195 -0700
++++ ./config.def.h	2026-06-19 15:25:41.433016564 -0700
+@@ -208,6 +208,7 @@
+ 	{ TERMMOD,              XK_Y,           selpaste,       {.i =  0} },
+ 	{ ShiftMask,            XK_Insert,      selpaste,       {.i =  0} },
+ 	{ TERMMOD,              XK_Num_Lock,    numlock,        {.i =  0} },
++	{ TERMMOD,              XK_S,           cyclefonts,     {}        },
+ };
+ 
+ /*
+diff -ruN -x '*.orig' -x '*.rej' ../src/x.c ./x.c
+--- ../src/x.c	2026-06-19 14:34:02.727203628 -0700
++++ ./x.c	2026-06-19 15:25:41.433016564 -0700
+@@ -59,6 +59,7 @@
+ static void zoomabs(const Arg *);
+ static void zoomreset(const Arg *);
+ static void ttysend(const Arg *);
++static void cyclefonts(const Arg *);
+ 
+ /* config.h for applying patches and the configuration. */
+ #include "config.h"
+@@ -316,11 +317,7 @@
+ zoomreset(const Arg *arg)
+ {
+ 	Arg larg;
+-
+-	if (defaultfontsize > 0) {
+-		larg.f = defaultfontsize;
+-		zoomabs(&larg);
+-	}
++	zoomabs(&larg);
+ }
+ 
+ void
+@@ -329,6 +326,17 @@
+ 	ttywrite(arg->s, strlen(arg->s), 1);
+ }
+ 
++void
++cyclefonts(const Arg *arg)
++{
++	currentfont++;
++	currentfont %= (sizeof fonts / sizeof fonts[0]);
++	usedfont = fonts[currentfont];
++	Arg larg;
++	larg.f = usedfontsize;
++	zoomabs(&larg);
++}
++
+ int
+ evcol(XEvent *e)
+ {
+@@ -1145,7 +1153,7 @@
+ 	if (!FcInit())
+ 		die("could not init fontconfig.\n");
+ 
+-	usedfont = (opt_font == NULL)? font : opt_font;
++	usedfont = (opt_font == NULL)? fonts[currentfont] : opt_font;
+ 	xloadfonts(usedfont, 0);
+ 
+ 	/* colors */

@@ -1,0 +1,30 @@
+diff -ruN -x '*.orig' -x '*.rej' ../src/config.def.h ./config.def.h
+--- ../src/config.def.h	2026-06-19 14:02:48.088881195 -0700
++++ ./config.def.h	2026-06-19 15:25:42.693020403 -0700
+@@ -134,14 +134,22 @@
+ 
+ /*
+  * Default colors (colorname index)
+- * foreground, background, cursor, reverse cursor
++ * foreground, background, cursor
+  */
+-unsigned int defaultfg = 258;
+-unsigned int defaultbg = 259;
+-unsigned int defaultcs = 256;
++unsigned int defaultfg = 257;
++unsigned int defaultbg = 256;
++unsigned int defaultcs = 257;
+ static unsigned int defaultrcs = 257;
+ 
+ /*
++ * Colors used, when the specific fg == defaultfg. So in reverse mode this
++ * will reverse too. Another logic would only make the simple feature too
++ * complex.
++ */
++unsigned int defaultitalic = 7;
++unsigned int defaultunderline = 7;
++
++/*
+  * Default shape of cursor
+  * 2: Block ("█")
+  * 4: Underline ("_")

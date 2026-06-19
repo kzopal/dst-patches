@@ -1,0 +1,12 @@
+diff -ruN -x '*.orig' -x '*.rej' ../src/config.def.h ./config.def.h
+--- ../src/config.def.h	2026-06-19 14:02:48.088881195 -0700
++++ ./config.def.h	2026-06-19 15:25:53.849054252 -0700
+@@ -26,7 +26,7 @@
+ char *shell = "/bin/sh";
+ char *utmp = NULL;
+ /* scroll program: to enable use a string like "scroll" */
+-char *scroll = NULL;
++char *scroll = "scroll";
+ char *stty_args = "stty raw pass8 nl -echo -iexten -cstopb 38400";
+ 
+ /* identification sequence returned in DA and DECID */

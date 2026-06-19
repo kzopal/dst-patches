@@ -1,0 +1,41 @@
+st.suckless.org patches — dst 0.9.3 compatibility
+==================================================
+Tested Fri Jun 19 2026  65 of 99 categories produce working patches.
+
+All apply with patch -p1 -F0 against dst commit 1694f5e.
+
+Working (65)
+--------------
+alpha, anygeometry, anysize, autocomplete, blinking-cursor, bold-is-not-bright,
+boxdraw, charoffsets, clickurl, clickurl-nocontrol, clipboard, colors-at-launch,
+colorschemes, copyurl, csi-22-23, customcursor, cyberpunk-neon, cyclefonts,
+darkpastel, delkey, disable-bold-italic-fonts, dracula, drag-n-drop,
+dynamic-cursor-color, externalpipe, externalpipe-signal, fix-ime, fix-keyboard-input,
+font2, fontmetrics, fullscreen, gradient, gruvbox-light, invert, keyboard-select,
+lesscases, line-snap-delimiter, nano-shortcuts, newterm, nobadweight, onedark,
+open-copied-url, open-selected-text, option, palettes, paste-controls, preedit,
+relativeborder, right-click-plumb, scrollback, scrollback-reflow-standalone,
+selectioncolors, solarized, spoiler, sync, themed-cursor, universcroll,
+vertcenter, visualbell3, w3m, windows-xp-colorscheme, xrandrfontsize,
+xresources, xresources-reload
+
+Not working (28 due to code-level incompatibility)
+----------------------------------------------------
+background-image, borderpx-option, changealpha (broken upstream), desktopentry,
+fix-keyboard-input, glyph-wide-support, hidecursor, iso14755, kitty-graphics,
+ligatures, minimum-contrast, netwmicon, nowide, openbsd, optionscheme,
+swapmouse, title-parsing-fix, undercurl, unfocused-cursor, vim-browse,
+visualbell, visualbell2, workingdir, xclearwin, xtheme, alpha-focus-highlight
+
+Colorschemes only (6, superseded by dst runtime config)
+----------------------------------------------------------
+gruber-darker, gruvbox-material, habamax, moonfly, nordtheme, sunset,
+selectionbg-alpha
+
+Notes
+-----
+- xresources applies cleanly but conflicts at link time with dst's config.c
+  (use xresources-reload instead which doesn't conflict)
+- Colorscheme patches are runtime-configurable via ~/.config/dst/config colorN
+- Patch files prefixed "st-" map to st.suckless.org category by stripping
+  the "st-" prefix and replacing hyphens with underscores

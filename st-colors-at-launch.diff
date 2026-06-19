@@ -1,0 +1,15 @@
+diff -ruN -x '*.orig' -x '*.rej' ../src/x.c ./x.c
+--- ../src/x.c	2026-06-19 14:34:02.727203628 -0700
++++ ./x.c	2026-06-19 15:25:56.973063687 -0700
+@@ -2095,6 +2095,11 @@
+ 	case 'v':
+ 		die("%s " VERSION "\n", argv0);
+ 		break;
++    case 'C':
++        colval = strtok(EARGF(usage()), "@");
++        i = atoi(strtok(NULL, "@"));
++		colorname[i] = colval;
++		break;
+ 	default:
+ 		usage();
+ 	} ARGEND;

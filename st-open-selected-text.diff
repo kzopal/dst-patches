@@ -1,0 +1,51 @@
+diff -ruN -x '*.orig' -x '*.rej' ../src/config.def.h ./config.def.h
+--- ../src/config.def.h	2026-06-19 14:02:48.088881195 -0700
++++ ./config.def.h	2026-06-19 15:25:59.421071068 -0700
+@@ -183,6 +183,7 @@
+  */
+ static MouseShortcut mshortcuts[] = {
+ 	/* mask                 button   function        argument       release */
++	{ ControlMask,          Button2, selopen,        {.i = 0},      1 },
+ 	{ XK_ANY_MOD,           Button2, selpaste,       {.i = 0},      1 },
+ 	{ ShiftMask,            Button4, ttysend,        {.s = "\033[5;2~"} },
+ 	{ XK_ANY_MOD,           Button4, ttysend,        {.s = "\031"} },
+diff -ruN -x '*.orig' -x '*.rej' ../src/x.c ./x.c
+--- ../src/x.c	2026-06-19 14:34:02.727203628 -0700
++++ ./x.c	2026-06-19 15:25:59.421071068 -0700
+@@ -5,6 +5,7 @@
+ #include <locale.h>
+ #include <signal.h>
+ #include <sys/select.h>
++#include <sys/wait.h>
+ #include <time.h>
+ #include <unistd.h>
+ #include <libgen.h>
+@@ -55,6 +56,7 @@
+ static void clippaste(const Arg *);
+ static void numlock(const Arg *);
+ static void selpaste(const Arg *);
++static void selopen(const Arg *);
+ static void zoom(const Arg *);
+ static void zoomabs(const Arg *);
+ static void zoomreset(const Arg *);
+@@ -288,6 +290,20 @@
+ }
+ 
+ void
++selopen(const Arg *dummy)
++{
++	pid_t chpid;
++
++	if ((chpid = fork()) == 0) {
++		if (fork() == 0)
++			execlp("xdg-open", "xdg-open", getsel(), NULL);
++		exit(1);
++	}
++	if (chpid > 0)
++		waitpid(chpid, NULL, 0);
++}
++
++void
+ numlock(const Arg *dummy)
+ {
+ 	win.mode ^= MODE_NUMLOCK;

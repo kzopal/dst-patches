@@ -1,0 +1,43 @@
+#!/bin/sh
+# check-versions — check st.suckless.org for newer patch versions
+# Usage: ./check-versions [category...]
+# Without args, lists the latest version of each patch on the site.
+# With args, checks if local patches for those categories are current.
+
+BASE="https://st.suckless.org/patches"
+MYDIR="$(cd "$(dirname "$0")" && pwd)"
+
+fetch() {
+  curl -sL "$1" 2>/dev/null | sed -n 's/.*href="\([^"]*\.diff\)".*/\1/p'
+}
+
+if [ $# -gt 0 ]; then
+  # Check specific categories against local files
+  for cat in "$@"; do
+    LIST=$(fetch "$BASE/$cat/")
+    [ -z "$LIST" ] && { echo "$cat: no downloads"; continue; }
+    LATEST=$(echo "$LIST" | tail -1)
+
+    # Try to find local match
+    local=$(ls "$MYDIR" | grep -i "st-$cat.*\.diff\|$cat.*\.diff" 2>/dev/null | head -1)
+    if [ -n "$local" ]; then
+      if [ "$local" != "$(basename "$LATEST")" ]; then
+        printf "%-30s local: %s\n" "$cat" "$local"
+        printf "%-30s latest: %s\n" "" "$(basename "$LATEST")"
+      else
+        printf "%-30s up-to-date\n" "$cat"
+      fi
+    else
+      printf "%-30s (no local version) latest: %s\n" "$cat" "$(basename "$LATEST")"
+    fi
+  done
+else
+  # List all categories and their latest patch
+  CATS=$(curl -sL "$BASE/" | sed -n 's|.*href="//st.suckless.org/patches/\([^"/]*\)/".*|\1|p' | sort -u)
+  for cat in $CATS; do
+    LIST=$(fetch "$BASE/$cat/")
+    [ -z "$LIST" ] && continue
+    LATEST=$(echo "$LIST" | tail -1)
+    printf "%-40s %s\n" "$cat" "$(basename "$LATEST")"
+  done
+fi

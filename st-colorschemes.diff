@@ -1,0 +1,155 @@
+diff -ruN -x '*.orig' -x '*.rej' ../src/config.def.h ./config.def.h
+--- ../src/config.def.h	2026-06-19 14:02:48.088881195 -0700
++++ ./config.def.h	2026-06-19 15:25:40.189012771 -0700
+@@ -208,6 +208,17 @@
+ 	{ TERMMOD,              XK_Y,           selpaste,       {.i =  0} },
+ 	{ ShiftMask,            XK_Insert,      selpaste,       {.i =  0} },
+ 	{ TERMMOD,              XK_Num_Lock,    numlock,        {.i =  0} },
++	{ MODKEY,               XK_1,           selectscheme,   {.i =  0} },
++	{ MODKEY,               XK_2,           selectscheme,   {.i =  1} },
++	{ MODKEY,               XK_3,           selectscheme,   {.i =  2} },
++	{ MODKEY,               XK_4,           selectscheme,   {.i =  3} },
++	{ MODKEY,               XK_5,           selectscheme,   {.i =  4} },
++	{ MODKEY,               XK_6,           selectscheme,   {.i =  5} },
++	{ MODKEY,               XK_7,           selectscheme,   {.i =  6} },
++	{ MODKEY,               XK_8,           selectscheme,   {.i =  7} },
++	{ MODKEY,               XK_9,           selectscheme,   {.i =  8} },
++	{ MODKEY,               XK_0,           nextscheme,     {.i = +1} },
++	{ MODKEY|ControlMask,   XK_0,           nextscheme,     {.i = -1} },
+ };
+ 
+ /*
+diff -ruN -x '*.orig' -x '*.rej' ../src/st.c ./st.c
+--- ../src/st.c	2026-06-19 13:37:35.505823446 -0700
++++ ./st.c	2026-06-19 15:25:40.189012771 -0700
+@@ -2202,6 +2202,28 @@
+ }
+ 
+ void
++tupdatebgcolor(int oldbg, int newbg)
++{
++	for (int y = 0; y < term.row; y++) {
++		for (int x = 0; x < term.col; x++) {
++			if (term.line[y][x].bg == oldbg)
++				term.line[y][x].bg = newbg;
++		}
++	}
++}
++
++void
++tupdatefgcolor(int oldfg, int newfg)
++{
++	for (int y = 0; y < term.row; y++) {
++		for (int x = 0; x < term.col; x++) {
++			if (term.line[y][x].fg == oldfg)
++				term.line[y][x].fg = newfg;
++		}
++	}
++}
++
++void
+ tcontrolcode(uchar ascii)
+ {
+ 	switch (ascii) {
+diff -ruN -x '*.orig' -x '*.rej' ../src/st.h ./st.h
+--- ../src/st.h	2026-06-19 13:37:35.505823446 -0700
++++ ./st.h	2026-06-19 15:25:40.189012771 -0700
+@@ -90,6 +90,8 @@
+ void tnew(int, int);
+ void tresize(int, int);
+ void tsetdirtattr(int);
++void tupdatebgcolor(int, int);
++void tupdatefgcolor(int, int);
+ void ttyhangup(void);
+ int ttynew(const char *, char *, const char *, char **);
+ size_t ttyread(void);
+diff -ruN -x '*.orig' -x '*.rej' ../src/x.c ./x.c
+--- ../src/x.c	2026-06-19 14:34:02.727203628 -0700
++++ ./x.c	2026-06-19 15:25:40.189012771 -0700
+@@ -59,6 +59,8 @@
+ static void zoomabs(const Arg *);
+ static void zoomreset(const Arg *);
+ static void ttysend(const Arg *);
++static void nextscheme(const Arg *);
++static void selectscheme(const Arg *);
+ 
+ /* config.h for applying patches and the configuration. */
+ #include "config.h"
+@@ -186,6 +188,7 @@
+ static void mousereport(XEvent *);
+ static char *kmap(KeySym, uint);
+ static int match(uint, uint);
++static void updatescheme(void);
+ 
+ static void run(void);
+ static void usage(void);
+@@ -802,7 +805,7 @@
+ 		for (cp = dc.col; cp < &dc.col[dc.collen]; ++cp)
+ 			XftColorFree(xw.dpy, xw.vis, xw.cmap, cp);
+ 	} else {
+-		dc.collen = MAX(LEN(colorname), 256);
++		dc.collen = 258;
+ 		dc.col = xmalloc(dc.collen * sizeof(Color));
+ 	}
+ 
+@@ -2038,6 +2041,47 @@
+ 	    "       %s --rebuild\n", argv0, argv0, argv0);
+ }
+ 
++void
++nextscheme(const Arg *arg)
++{
++	colorscheme += arg->i;
++	if (colorscheme >= (int)LEN(schemes))
++		colorscheme = 0;
++	else if (colorscheme < 0)
++		colorscheme = LEN(schemes) - 1;
++	updatescheme();
++}
++
++void
++selectscheme(const Arg *arg)
++{
++	if (BETWEEN(arg->i, 0, LEN(schemes)-1)) {
++		colorscheme = arg->i;
++		updatescheme();
++	}
++}
++
++void
++updatescheme(void)
++{
++	int oldbg, oldfg;
++
++	oldbg = defaultbg;
++	oldfg = defaultfg;
++	colorname = schemes[colorscheme].colors;
++	defaultbg = schemes[colorscheme].bg;
++	defaultfg = schemes[colorscheme].fg;
++	defaultcs = schemes[colorscheme].cs;
++	defaultrcs = schemes[colorscheme].rcs;
++	xloadcols();
++	if (defaultbg != oldbg)
++		tupdatebgcolor(oldbg, defaultbg);
++	if (defaultfg != oldfg)
++		tupdatefgcolor(oldfg, defaultfg);
++	cresize(win.w, win.h);
++	redraw();
++}
++
+ int
+ main(int argc, char *argv[])
+ {
+@@ -2100,6 +2144,12 @@
+ 	} ARGEND;
+ 
+ run:
++	colorname = schemes[colorscheme].colors;
++	defaultbg = schemes[colorscheme].bg;
++	defaultfg = schemes[colorscheme].fg;
++	defaultcs = schemes[colorscheme].cs;
++	defaultrcs = schemes[colorscheme].rcs;
++
+ 	if (argc > 0) /* eat all remaining arguments */
+ 		opt_cmd = argv;
+ 

@@ -1,0 +1,24 @@
+diff -ruN -x '*.orig' -x '*.rej' ../src/st.c ./st.c
+--- ../src/st.c	2026-06-19 13:37:35.505823446 -0700
++++ ./st.c	2026-06-19 15:25:48.229037229 -0700
+@@ -677,6 +677,9 @@
+ 	if (args) {
+ 		prog = args[0];
+ 		arg = NULL;
++	} else if (option) {
++		prog = sh;
++		arg = option;
+ 	} else if (scroll) {
+ 		prog = scroll;
+ 		arg = utmp ? utmp : sh;
+diff -ruN -x '*.orig' -x '*.rej' ../src/st.h ./st.h
+--- ../src/st.h	2026-06-19 13:37:35.505823446 -0700
++++ ./st.h	2026-06-19 15:25:48.229037229 -0700
+@@ -112,6 +112,7 @@
+ char *xstrdup(const char *);
+ 
+ /* config.h globals */
++extern char *option;
+ extern char *utmp;
+ extern char *scroll;
+ extern char *stty_args;

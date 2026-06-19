@@ -1,0 +1,21 @@
+Patches for dst — dynamic suckless terminal
+============================================
+
+65 verified patches for dst (st 0.9.3 + 2 commits, commit 1694f5e).
+All apply with patch -p1 -F0. Use with dst --rebuild include directives.
+
+Source: https://st.suckless.org/patches/
+
+Naming
+  st-{category}.diff
+  Map to st.suckless.org categories: st-foo-bar.diff → /patches/foo-bar/
+
+Updating
+  ./check-versions                   # list latest version of every category
+  ./check-versions vertcenter        # check specific category
+
+Notes
+  - Colorscheme patches are superseded by dst runtime config
+    (set colorN = #XXXXXX in ~/.config/dst/config)
+  - xresources applies but conflicts with dst's config.c at link time;
+    use xresources-reload instead

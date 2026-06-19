@@ -1,0 +1,61 @@
+diff -ruN -x '*.orig' -x '*.rej' ../src/config.def.h ./config.def.h
+--- ../src/config.def.h	2026-06-19 14:02:48.088881195 -0700
++++ ./config.def.h	2026-06-19 15:25:58.197067380 -0700
+@@ -208,6 +208,7 @@
+ 	{ TERMMOD,              XK_Y,           selpaste,       {.i =  0} },
+ 	{ ShiftMask,            XK_Insert,      selpaste,       {.i =  0} },
+ 	{ TERMMOD,              XK_Num_Lock,    numlock,        {.i =  0} },
++	{ TERMMOD,              XK_X,           invert,         { }       },
+ };
+ 
+ /*
+diff -ruN -x '*.orig' -x '*.rej' ../src/x.c ./x.c
+--- ../src/x.c	2026-06-19 14:34:02.727203628 -0700
++++ ./x.c	2026-06-19 15:25:58.197067380 -0700
+@@ -59,6 +59,7 @@
+ static void zoomabs(const Arg *);
+ static void zoomreset(const Arg *);
+ static void ttysend(const Arg *);
++static void invert(const Arg *);
+ 
+ /* config.h for applying patches and the configuration. */
+ #include "config.h"
+@@ -852,9 +853,11 @@
+ void
+ xclear(int x1, int y1, int x2, int y2)
+ {
+-	XftDrawRect(xw.draw,
+-			&dc.col[IS_SET(MODE_REVERSE)? defaultfg : defaultbg],
+-			x1, y1, x2-x1, y2-y1);
++	Color c;
++	c = dc.col[IS_SET(MODE_REVERSE)? defaultfg : defaultbg];
++	if (invertcolors)
++		c = invertedcolor(&c);
++	XftDrawRect(xw.draw, &c, x1, y1, x2-x1, y2-y1);
+ }
+ 
+ void
+@@ -1467,6 +1470,13 @@
+ 	if (base.mode & ATTR_INVISIBLE)
+ 		fg = bg;
+ 
++	if (invertcolors) {
++		revfg = invertedcolor(fg);
++		revbg = invertedcolor(bg);
++		fg = &revfg;
++		bg = &revbg;
++	}
++
+ 	/* Intelligent cleaning up of the borders. */
+ 	if (x == 0) {
+ 		xclear(0, (y == 0)? 0 : winy, borderpx,
+@@ -1559,6 +1569,9 @@
+ 		drawcol = dc.col[g.bg];
+ 	}
+ 
++	if (invertcolors)
++		drawcol = invertedcolor(&drawcol);
++
+ 	/* draw the new one */
+ 	if (IS_SET(MODE_FOCUSED)) {
+ 		switch (win.cursor) {
