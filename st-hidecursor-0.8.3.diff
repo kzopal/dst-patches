@@ -28,12 +28,12 @@ index e5f1737..7e759b0 100644
  	if (IS_SET(MODE_MOUSE) && !(e->xbutton.state & forcemousemod)) {
  		mousereport(e);
  		return;
-@@ -1099,10 +1111,10 @@ void
+@@ -1131,10 +1143,10 @@ void
  xinit(int cols, int rows)
  {
  	XGCValues gcvalues;
 -	Cursor cursor;
- 	Window parent;
+ 	Window parent, root;
  	pid_t thispid = getpid();
  	XColor xmousefg, xmousebg;
 +	Pixmap blankpm;
