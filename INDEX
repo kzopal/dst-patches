@@ -11,7 +11,7 @@ clickurl-nocontrol	st-clickurl-nocontrol-0.9.2.diff
 clipboard	st-clipboard-20180309-c5ba9c0.diff
 colors-at-launch	st-colors-at-launch.diff
 colorschemes	st-colorschemes.diff
-combo-5	st-combo-5.diff
+scrollback-plus	st-scrollback-plus.diff
 copyurl-multiline	st-copyurl-multiline-20230406-211964d.diff
 csi_22_23	st-csi_22_23-0.8.5.diff
 customcursor	st-customcursor.diff
