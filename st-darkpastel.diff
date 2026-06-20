@@ -1,6 +1,6 @@
-diff -ruN a/config.h b/config.h
---- a/config.h	2026-06-19 14:05:28.381108830 -0700
-+++ b/config.h	2026-06-19 15:25:10.708922011 -0700
+diff -ruN a/config.def.h b/config.def.h
+--- a/config.def.h	2026-06-19 14:05:28.381108830 -0700
++++ b/config.def.h	2026-06-19 15:25:10.708922011 -0700
 @@ -103,32 +103,24 @@
  /* Terminal colors (16 first used in escape sequence) */
  char *colorname[] = {
